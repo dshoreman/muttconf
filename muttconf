@@ -73,10 +73,10 @@ list_actions() {
     done
     echo >&2
 
-    prompt opt "Enter selection" "${1}"
+    prompt opt "Enter selection" "${1}" 1
     while [[ ! " ${validopts[*]} " == *" ${opt} "* ]]; do
         warn "Invalid option '${opt}'" >&2
-        prompt opt "Enter selection" "${1}"
+        prompt opt "Enter selection" "${1}" 1
     done
 
     echo "$opt" && echo >&2
@@ -120,8 +120,13 @@ prompt() {
 
     [ -n "$3" ] && default=" [${3}]"
 
-    bold=1 colourise 37 -n "${2}${default}: " >&2
-    read -r var
+    if [ "$4" ]; then
+        bold=1 colourise 37 -n "${2}${default}: " >&2
+        read -rn"${4}" var
+    else
+        bold=1 info " ${2}${default}:" >&2
+        read -rp $' ' var
+    fi
     var="${var:-$3}"
 }
 
