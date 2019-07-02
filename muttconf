@@ -20,12 +20,12 @@
 set -Eeo pipefail
 
 trap '[ $? == 69 ] && main || error -e "\nAborted due to error" && exit 1' ERR
-trap '[ "$page" == "main" ] && info -e "\nGoodbye!" && exit 0 || return 69' SIGINT
+trap '[ "$page" == "Main Menu" ] && info -e "\nGoodbye!" && exit 0 || return 69' SIGINT
 
 readonly _VERSION="0.0.0"
 
 main() {
-    page=main
+    page="Main Menu"
     print_logo
 
     case "$(list_actions q)" in
@@ -39,7 +39,7 @@ main() {
 }
 
 create_account() {
-    page=create
+    page="Account Creator"
     print_logo
 
     info -e " This page will guide you through setting up a new account. Start by entering\n" \
@@ -95,7 +95,9 @@ print_logo() {
     success '   | $$ \/  | $$|  $$$$$$/  |  $$$$/|  $$$$/|  $$$$$$/|  $$$$$$/| $$  | $$| $$      '
     success '   |__/     |__/ \______/    \___/   \___/   \______/  \______/ |__/  |__/|__/      '
     bold=0
-    warn -e "\n                                                             Version ${_VERSION}"
+
+    warn -en "\n    $(printf "%-55s" "[ ${page} ]")"
+    success -e "     Version ${_VERSION}\n"
 }
 
 info() {
