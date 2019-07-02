@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+#
+# Muttconf - A tool to help configure accounts in Mutt
+# Copyright (C) 2019  Dave Shoreman <aur+muttconf at dsdev dot io>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+set -Eeo pipefail
+
+trap 'echo -e "\nAborted due to error" && exit 1' ERR
+trap 'echo -e "\nAborted by user" && exit 1' SIGINT
+
+readonly _VERSION="0.0.0"
+
+main() {
+    print_logo
+}
+
+# shellcheck disable=SC2016
+print_logo() {
+    clear; echo
+    bold=1
+    success '    /$$      /$$             /$$     /$$      /$$$$$$                       /$$$$$$ '
+    success '   | $$$    /$$$            | $$    | $$     /$$__  $$                     /$$__  $$'
+    success '   | $$$$  /$$$$ /$$   /$$ /$$$$$$ /$$$$$$  | $$  \__/  /$$$$$$  /$$$$$$$ | $$  \__/'
+    success '   | $$ $$/$$ $$| $$  | $$|_  $$_/|_  $$_/  | $$       /$$__  $$| $$__  $$| $$$$    '
+    success '   | $$  $$$| $$| $$  | $$  | $$    | $$    | $$      | $$  \ $$| $$  \ $$| $$_/    '
+    success '   | $$\  $ | $$| $$  | $$  | $$ /$$| $$ /$$| $$    $$| $$  | $$| $$  | $$| $$      '
+    success '   | $$ \/  | $$|  $$$$$$/  |  $$$$/|  $$$$/|  $$$$$$/|  $$$$$$/| $$  | $$| $$      '
+    success '   |__/     |__/ \______/    \___/   \___/   \______/  \______/ |__/  |__/|__/      '
+    bold=0 warn -e "\n                                                             Version ${_VERSION}"
+}
+
+info() {
+    colourise 36 "$@"
+}
+
+warn() {
+    colourise 33 "$@"
+}
+
+error() {
+    colourise 31 "$@"
+}
+
+success() {
+    colourise 32 "$@"
+}
+
+colourise() {
+    echo -en "\033[${bold:-0};${1}m"
+    echo "${@:2}"
+    echo -en "\033[0m"
+}
+
+main
