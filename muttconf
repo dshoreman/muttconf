@@ -45,7 +45,7 @@ create_account() {
     info -e " This page will guide you through setting up a new account. Start by entering\n" \
         "a name for the account (e.g. \"Home\"), then follow the prompts to configure\n" \
         "your email settings. You'll choose how to store mail on the next screen.\n\n" \
-        "You can return to the main menu at any time by pressing Ctrl C.\n"
+        "You can return to the main menu at any time by pressing Ctrl C."
 
     prompt account_name "Account Name"
     prompt fullname "Your Name"
@@ -71,11 +71,10 @@ list_actions() {
         echo -n " [${action[0]}] " >&2
         bold=1 ${action[2]:-info} "${action[1]}" >&2
     done
-    echo >&2
 
     prompt opt "Enter selection" "${1}" 1
     while [[ ! " ${validopts[*]} " == *" ${opt} "* ]]; do
-        warn "Invalid option '${opt}'" >&2
+        warn -e "\nInvalid option '${opt}'" >&2
         prompt opt "Enter selection" "${1}" 1
     done
 
@@ -123,10 +122,10 @@ prompt() {
     [ -n "$3" ] && default=" [${3}]"
 
     if [ "$4" ]; then
-        bold=1 colourise 37 -n "${2}${default}: " >&2
+        bold=1 colourise 37 -en "\n${2}${default}: " >&2
         read -rn"${4}" var
     else
-        bold=1 info " ${2}${default}:" >&2
+        bold=1 info -e "\n ${2}${default}:" >&2
         read -rp $' ' var
     fi
     var="${var:-$3}"
