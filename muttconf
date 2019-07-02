@@ -19,17 +19,39 @@
 
 set -Eeo pipefail
 
-trap 'echo -e "\nAborted due to error" && exit 1' ERR
-trap 'echo -e "\nAborted by user" && exit 1' SIGINT
+trap '[ $? == 69 ] && main || error -e "\nAborted due to error" && exit 1' ERR
+trap '[ "$page" == "main" ] && info -e "\nGoodbye!" && exit 0 || return 69' SIGINT
 
 readonly _VERSION="0.0.0"
 
 main() {
+    page=main
     print_logo
+
     case "$(list_actions q)" in
+        n)
+            create_account ;;
         q)
             info "Goodbye!" && exit 0 ;;
     esac
+
+    main
+}
+
+create_account() {
+    page=create
+    print_logo
+
+    info -e " This page will guide you through setting up a new account. Start by entering\n" \
+        "a name for the account (e.g. \"Home\"), then follow the prompts to configure\n" \
+        "your email settings. You'll choose how to store mail on the next screen.\n\n" \
+        "You can return to the main menu at any time by pressing Ctrl C.\n"
+
+    prompt account_name "Account Name"
+    prompt fullname "Your Name"
+    prompt email_address "Email Address"
+    # shellcheck disable=SC2154
+    prompt username "Username" "${email_address}"
 }
 
 list_actions() {
@@ -37,6 +59,7 @@ list_actions() {
 
     case "${FUNCNAME[1]}" in
         main)
+            actions+=("n;Create a new account;success")
             actions+=("q;Quit;error")
             ;;
     esac
