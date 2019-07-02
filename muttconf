@@ -26,6 +26,37 @@ readonly _VERSION="0.0.0"
 
 main() {
     print_logo
+    case "$(list_actions q)" in
+        q)
+            info "Goodbye!" && exit 0 ;;
+    esac
+}
+
+list_actions() {
+    local actions=() validopts=() opt
+
+    case "${FUNCNAME[1]}" in
+        main)
+            actions+=("q;Quit;error")
+            ;;
+    esac
+
+    for action in "${actions[@]}"; do
+        IFS=";" read -ra action <<< "${action}"
+        validopts+=("${action[0]}")
+
+        echo -n " [${action[0]}] " >&2
+        bold=1 ${action[2]:-info} "${action[1]}" >&2
+    done
+    echo >&2
+
+    prompt opt "Enter selection" "${1}"
+    while [[ ! " ${validopts[*]} " == *" ${opt} "* ]]; do
+        warn "Invalid option '${opt}'" >&2
+        prompt opt "Enter selection" "${1}"
+    done
+
+    echo "$opt" && echo >&2
 }
 
 # shellcheck disable=SC2016
@@ -57,6 +88,17 @@ error() {
 
 success() {
     colourise 32 "$@"
+}
+
+prompt() {
+    declare -n var=$1
+    local default
+
+    [ -n "$3" ] && default=" [${3}]"
+
+    bold=1 colourise 37 -n "${2}${default}: " >&2
+    read -r var
+    var="${var:-$3}"
 }
 
 colourise() {
