@@ -38,9 +38,19 @@ main() {
     main
 }
 
-# shellcheck disable=SC2154
 create_account() {
+    local confirmed
     page="Account Creator"
+
+    while [[ ! "${confirmed}" =~ [yY] ]]; do
+        get_account_details
+
+        prompt confirmed "Are these values correct?" "n" "yN" 1
+    done
+}
+
+# shellcheck disable=SC2154
+get_account_details() {
     print_logo
 
     info -e " This page will guide you through setting up a new account. Start by entering\n" \
@@ -48,21 +58,16 @@ create_account() {
         "your email settings. You'll choose how to store mail on the next screen.\n\n" \
         "You can return to the main menu at any time by pressing Ctrl C."
 
-    prompt account_name "Account Name" "$1"
-    prompt realname "Your Name" "$2"
-    prompt email_address "Email Address" "$3"
-    prompt username "Username" "${4:-$email_address}"
+    prompt account_name "Account Name" "$account_name"
+    prompt realname "Your Name" "$realname"
+    prompt email_address "Email Address" "$email_address"
+    prompt username "Username" "${username:-$email_address}"
 
     bold=1 warn -e "\n You entered the following details:"
     bold=1 plain -n "     Your Name: " && echo "${realname}"
     bold=1 plain -n "  Account Name: " && echo "${account_name}"
     bold=1 plain -n " Email Address: " && echo "${email_address}"
     bold=1 plain -n "      Username: " && echo "${username}"
-
-    prompt confirmed "Are these values correct?" "n" "yN" 1
-    if [[ ! "$confirmed" =~ [yY] ]]; then
-        create_account "$account_name" "$realname" "$email_address" "$username"
-    fi
 }
 
 list_actions() {
