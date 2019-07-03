@@ -19,12 +19,20 @@
 
 set -Eeo pipefail
 
-trap '[ $? == 69 ] && main || error -e "\nAborted due to error" && exit 1' ERR
-trap '[ "$page" == "Main Menu" ] && info -e "\nGoodbye!" && exit 0 || return 69' SIGINT
+# If exit status is 69, user hit ^C from main menu so we'll ignore it
+trap '[ $? != 69 ] && error -e "\nAborted due to error" && exit 1' ERR
 
 readonly _VERSION="0.0.0"
 
 main() {
+    while :; do
+        ( trap '[ "$page" == "Main Menu" ] && quit || exit 0' SIGINT
+            main_menu
+        ); [ $? -eq 69 ] && break
+    done
+}
+
+main_menu() {
     page="Main Menu"
     print_logo
 
@@ -32,10 +40,8 @@ main() {
         n)
             create_account ;;
         q)
-            info "Goodbye!" && exit 0 ;;
+            quit ;;
     esac
-
-    main
 }
 
 create_account() {
@@ -74,7 +80,7 @@ list_actions() {
     local actions=() validopts=() opt
 
     case "${FUNCNAME[1]}" in
-        main)
+        main_menu)
             actions+=("n;Create a new account;success")
             actions+=("q;Quit;error")
             ;;
@@ -113,6 +119,11 @@ print_logo() {
 
     warn -en "\n    $(printf "%-55s" "[ ${page} ]")"
     success -e "     Version ${_VERSION}\n"
+}
+
+quit() {
+    info -e "\nGoodbye!"
+    exit 69
 }
 
 info() {
