@@ -1,0 +1,11 @@
+set folder = imaps://${imap_server}
+set imap_user = ${username}
+
+set spoolfile = +INBOX
+set imap_check_subscribed
+
+set header_cache = ~/.cache/mutt
+set message_cachedir = ~/.cache/mutt
+set imap_keepalive = 300
+set mail_check = 300
+unset imap_passive

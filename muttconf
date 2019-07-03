@@ -53,6 +53,12 @@ create_account() {
 
         prompt confirmed "Are these values correct?" "n" "yN" 1
     done
+
+    find_server_config "${email_address}"
+
+    save_configs && success -e "\n\nAll done! Press enter to return to main menu"
+
+    read -r
 }
 
 # shellcheck disable=SC2154
@@ -74,6 +80,24 @@ get_account_details() {
     bold=1 plain -n "  Account Name: " && echo "${account_name}"
     bold=1 plain -n " Email Address: " && echo "${email_address}"
     bold=1 plain -n "      Username: " && echo "${username}"
+}
+
+find_server_config() {
+    case "${1#*@}" in
+        gmail.com)
+            imap_server=imap.gmail.com:993
+            ;;
+    esac
+}
+
+save_configs() {
+    muttrc=$(
+        export username imap_server
+        envsubst < templates/muttrc
+    )
+
+    mkdir -p ~/.config/mutt
+    echo "${muttrc}" > ~/.config/mutt/muttrc
 }
 
 list_actions() {
