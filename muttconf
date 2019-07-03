@@ -38,6 +38,7 @@ main() {
     main
 }
 
+# shellcheck disable=SC2154
 create_account() {
     page="Account Creator"
     print_logo
@@ -47,11 +48,21 @@ create_account() {
         "your email settings. You'll choose how to store mail on the next screen.\n\n" \
         "You can return to the main menu at any time by pressing Ctrl C."
 
-    prompt account_name "Account Name"
-    prompt fullname "Your Name"
-    prompt email_address "Email Address"
-    # shellcheck disable=SC2154
-    prompt username "Username" "${email_address}"
+    prompt account_name "Account Name" "$1"
+    prompt realname "Your Name" "$2"
+    prompt email_address "Email Address" "$3"
+    prompt username "Username" "${4:-$email_address}"
+
+    bold=1 warn -e "\n You entered the following details:"
+    bold=1 plain -n "     Your Name: " && echo "${realname}"
+    bold=1 plain -n "  Account Name: " && echo "${account_name}"
+    bold=1 plain -n " Email Address: " && echo "${email_address}"
+    bold=1 plain -n "      Username: " && echo "${username}"
+
+    prompt confirmed "Are these values correct?" "n" "yN" 1
+    if [[ ! "$confirmed" =~ [yY] ]]; then
+        create_account "$account_name" "$realname" "$email_address" "$username"
+    fi
 }
 
 list_actions() {
@@ -72,10 +83,10 @@ list_actions() {
         bold=1 ${action[2]:-info} "${action[1]}" >&2
     done
 
-    prompt opt "Enter selection" "${1}" 1
+    prompt opt "Enter selection" "${1}" "${1}" 1
     while [[ ! " ${validopts[*]} " == *" ${opt} "* ]]; do
         warn -e "\nInvalid option '${opt}'" >&2
-        prompt opt "Enter selection" "${1}" 1
+        prompt opt "Enter selection" "${1}" "${1}" 1
     done
 
     echo "$opt" && echo >&2
@@ -115,20 +126,31 @@ success() {
     colourise 32 "$@"
 }
 
+plain() {
+    colourise 37 "$@"
+}
+
+# Prompt the user for input
+# Arguments:
+#   string  var         required    Variable the result should be assigned to
+#   string  prompt      required    Text used for the prompt
+#   string  default     optional    Default value if none is given
+#   string  values      optional    All possible values including default
+#   integer length      optional    Number of characters to accept from input
 prompt() {
     declare -n var=$1
-    local default
+    local chars="${5}" default="${3}" question="${2}" values="${4}"
 
-    [ -n "$3" ] && default=" [${3}]"
+    [ -n "${default}" ] || [ -n "${values}" ] && values=" [${values:-$default}]"
 
-    if [ "$4" ]; then
-        bold=1 colourise 37 -en "\n${2}${default}: " >&2
-        read -rn"${4}" var
+    if [ -n "${chars}" ]; then
+        bold=1 colourise 37 -en "\n${question}${values}: " >&2
+        read -rn"${chars}" var
     else
-        bold=1 info -e "\n ${2}${default}:" >&2
+        bold=1 info -e "\n ${question}${values}:" >&2
         read -rp $' ' var
     fi
-    var="${var:-$3}"
+    var="${var:-$default}"
 }
 
 colourise() {
