@@ -45,7 +45,7 @@ main_menu() {
 }
 
 create_account() {
-    local confirmed
+    local confirmed mailboxes retry
     page="Account Creator"
 
     while [[ ! "${confirmed}" =~ [yY] ]]; do
@@ -54,7 +54,16 @@ create_account() {
         prompt confirmed "Are these values correct?" "n" "yN" 1
     done
 
+    # TODO: Add prompts to enter manually when not found
     find_server_config "${email_address}"
+
+    while [ -z "${mailboxes}" ]; do
+        load_mailboxes
+
+        if [ -z "${mailboxes}" ] && [[ ! "${retry}" =~ [yY] ]]; then
+            return
+        fi
+    done
 
     save_configs && success -e "\n\nAll done! Press enter to return to main menu"
 
@@ -85,9 +94,34 @@ get_account_details() {
 find_server_config() {
     case "${1#*@}" in
         gmail.com)
+            provider=gmail
             imap_server=imap.gmail.com:993
             ;;
     esac
+}
+
+load_mailboxes() {
+    local code=0 response
+
+    info -e "\n\nLogging in to fetch mailboxes..."
+    response="$(curl -su "${username}:$(mailpass "${username}")" "imaps://${imap_server}")" || \
+        code="$?" && :
+
+    if [ "${code}" == "67" ]; then
+        bold=1 error "Login failed!"
+        info "${response}"
+
+        if [ "${provider}" == "gmail" ]; then
+            bold=1 warn "Gmail and GSuite users must enable access for Less Secure Apps:"
+            warn "https://myaccount.google.com/lesssecureapps"
+        fi
+
+        prompt retry "Try again?" "y" "Yn" 1
+        return
+    fi
+
+    mailboxes="$(echo "${response}" | grep -o '".*"' | sed 's_"/" "\(.*\)"_\1_')"
+    info "Found $(echo -n "${mailboxes}" | wc -l) mailboxes for ${email_address}"
 }
 
 save_configs() {
