@@ -22,7 +22,7 @@ set -Eeo pipefail
 # If exit status is 69, user hit ^C from main menu so we'll ignore it
 trap '[ $? != 69 ] && error -e "\nAborted due to error" && exit 1' ERR
 
-readonly _VERSION="0.0.0"
+readonly _VERSION="0.1.0"
 
 main() {
     while :; do
