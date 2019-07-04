@@ -45,7 +45,7 @@ main_menu() {
 }
 
 create_account() {
-    local confirmed mailboxes retry tries=10 try=1
+    local confirmed mailboxes password retry tries=10 try=1
     page="Account Creator"
 
     while [[ ! "${confirmed}" =~ [yY] ]]; do
@@ -53,6 +53,8 @@ create_account() {
 
         prompt confirmed "Are these values correct?" "n" "yN" 1
     done
+
+    set_password
 
     # TODO: Add prompts to enter manually when not found
     # shellcheck disable=SC2154
@@ -94,6 +96,38 @@ get_account_details() {
     bold=1 plain -n "      Username: " && echo "${username}"
 }
 
+set_password() {
+    local passconf
+    while [ -z "${password}" ] || [ "${password}" != "${passconf}" ]; do
+        print_logo
+
+        info -e " Now that the main account details are set, you'll need to enter your\n" \
+            "password so that MuttConf can retrieve a list of folders and configure\n" \
+            "Mutt to connect automatically without prompting for a password every\n" \
+            "time. If it's available, passwords will be stored using LastPass CLI."
+
+        [ -n "${password}" ] && bold=1 error " The passwords you entered don't match! Try again."
+
+        passprompt password "Enter password"
+        passprompt passconf "Confirm password"
+    done
+
+    unset passconf
+
+    info -e "\n Saving password to LastPass..."
+    if {
+        echo "Username: ${username}"
+        echo "Password: ${password}"
+        echo -e "Notes: \nAdded by MuttConf.\nEmail: ${email_address}\nReal Name: ${realname}"
+    } | lpass add "Email/MuttConf/${account_name}" --non-interactive --sync=now; then
+        unset password && lpass sync
+        success " Password saved!"
+    else
+        error " Failed saving password, falling back to plain text."
+    fi
+    sleep 1
+}
+
 find_server_config() {
     case "${1#*@}" in
         gmail.com)
@@ -103,12 +137,21 @@ find_server_config() {
     esac
 }
 
+find_lpass_id() {
+    local lpass_account
+
+    lpass_account=$(lpass ls --sync=now -l "Email/MuttConf" | grep "${account_name}")
+
+    echo "${lpass_account}" | sed -E 's/.*\[id: ([0-9]+)\].*/\1/'
+}
+
 load_mailboxes() {
-    local code=0 response
+    local code=0 pass_actual response
     print_logo
 
     info "Logging in to ${imap_server} (attempt ${try} of ${tries})..."
-    response="$(curl -su "${username}:$(mailpass "${username}")" "imaps://${imap_server}")" || \
+    pass_actual="${password:-$(lpass show --password "$(find_lpass_id)")}"
+    response="$(curl -su "${username}:${pass_actual}" "imaps://${imap_server}")" || \
         code="$?" && :
 
     if [ "${code}" == "67" ]; then
@@ -136,11 +179,14 @@ load_mailboxes() {
 }
 
 save_configs() {
+    [ -z "${password}" ] && password="\`lpass show --password \"Email/MuttConf/${account_name}\"\`"
+
     muttrc=$(
-        export username imap_server
+        export username imap_server password
         envsubst < templates/muttrc
     )
 
+    unset password
     mkdir -p ~/.config/mutt
     echo "${muttrc}" > ~/.config/mutt/muttrc
 }
@@ -240,6 +286,13 @@ prompt() {
         read -rp $' ' var
     fi
     var="${var:-$default}"
+}
+
+passprompt() {
+    declare -n var=$1
+
+    bold=1 colourise 37 -e "\n ${2}:"
+    read -rsp $' ' var
 }
 
 colourise() {
