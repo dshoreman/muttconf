@@ -19,13 +19,203 @@
 
 set -Eeo pipefail
 
-trap 'echo -e "\nAborted due to error" && exit 1' ERR
-trap 'echo -e "\nAborted by user" && exit 1' SIGINT
+# If exit status is 69, user hit ^C from main menu so we'll ignore it
+trap '[ $? != 69 ] && error -e "\nAborted due to error" && exit 1' ERR
 
-readonly _VERSION="0.0.0"
+readonly _VERSION="0.1.0"
 
 main() {
+    while :; do
+        ( trap '[ "$page" == "Main Menu" ] && quit || exit 0' SIGINT
+            main_menu
+        ); [ $? -eq 69 ] && break
+    done
+}
+
+main_menu() {
+    page="Main Menu"
     print_logo
+
+    case "$(list_actions q)" in
+        n)
+            create_account ;;
+        q)
+            quit ;;
+    esac
+}
+
+create_account() {
+    local confirmed mailboxes password retry tries=10 try=1
+    page="Account Creator"
+
+    while [[ ! "${confirmed}" =~ [yY] ]]; do
+        get_account_details
+
+        prompt confirmed "Are these values correct?" "n" "yN" 1
+    done
+
+    set_password
+
+    # TODO: Add prompts to enter manually when not found
+    # shellcheck disable=SC2154
+    find_server_config "${email_address}"
+
+    while [ -z "${mailboxes}" ] && (( "${try}" <= "${tries}" )); do
+        page="Verifying Connection Details"
+        load_mailboxes
+        (( try++ ))
+
+        if [ -z "${mailboxes}" ] && [[ ! "${retry}" =~ [yY] ]]; then
+            return
+        fi
+    done
+
+    save_configs && success -e "\n\nAll done! Press enter to return to main menu"
+
+    read -r
+}
+
+# shellcheck disable=SC2154
+get_account_details() {
+    print_logo
+
+    info -e " This page will guide you through setting up a new account. Start by entering\n" \
+        "a name for the account (e.g. \"Home\"), then follow the prompts to configure\n" \
+        "your email settings. You'll choose how to store mail on the next screen.\n\n" \
+        "You can return to the main menu at any time by pressing Ctrl C."
+
+    prompt account_name "Account Name" "$account_name"
+    prompt realname "Your Name" "$realname"
+    prompt email_address "Email Address" "$email_address"
+    prompt username "Username" "${username:-$email_address}"
+
+    bold=1 warn -e "\n You entered the following details:"
+    bold=1 plain -n "     Your Name: " && echo "${realname}"
+    bold=1 plain -n "  Account Name: " && echo "${account_name}"
+    bold=1 plain -n " Email Address: " && echo "${email_address}"
+    bold=1 plain -n "      Username: " && echo "${username}"
+}
+
+set_password() {
+    local passconf
+    while [ -z "${password}" ] || [ "${password}" != "${passconf}" ]; do
+        print_logo
+
+        info -e " Now that the main account details are set, you'll need to enter your\n" \
+            "password so that MuttConf can retrieve a list of folders and configure\n" \
+            "Mutt to connect automatically without prompting for a password every\n" \
+            "time. If it's available, passwords will be stored using LastPass CLI."
+
+        [ -n "${password}" ] && bold=1 error " The passwords you entered don't match! Try again."
+
+        passprompt password "Enter password"
+        passprompt passconf "Confirm password"
+    done
+
+    unset passconf
+
+    info -e "\n Saving password to LastPass..."
+    if {
+        echo "Username: ${username}"
+        echo "Password: ${password}"
+        echo -e "Notes: \nAdded by MuttConf.\nEmail: ${email_address}\nReal Name: ${realname}"
+    } | lpass add "Email/MuttConf/${account_name}" --non-interactive --sync=now; then
+        unset password && lpass sync
+        success " Password saved!"
+    else
+        error " Failed saving password, falling back to plain text."
+    fi
+    sleep 1
+}
+
+find_server_config() {
+    case "${1#*@}" in
+        gmail.com)
+            provider=gmail
+            imap_server=imap.gmail.com:993
+            ;;
+    esac
+}
+
+find_lpass_id() {
+    local lpass_account
+
+    lpass_account=$(lpass ls --sync=now -l "Email/MuttConf" | grep "${account_name}")
+
+    echo "${lpass_account}" | sed -E 's/.*\[id: ([0-9]+)\].*/\1/'
+}
+
+load_mailboxes() {
+    local code=0 pass_actual response
+    print_logo
+
+    info "Logging in to ${imap_server} (attempt ${try} of ${tries})..."
+    pass_actual="${password:-$(lpass show --password "$(find_lpass_id)")}"
+    response="$(curl -su "${username}:${pass_actual}" "imaps://${imap_server}")" || \
+        code="$?" && :
+
+    if [ "${code}" == "67" ]; then
+        bold=1 error "Login failed!"
+        info "${response}"
+
+        if [ "${provider}" == "gmail" ]; then
+            bold=1 warn "Gmail and GSuite users must enable access for Less Secure Apps:"
+            warn "https://myaccount.google.com/lesssecureapps"
+        fi
+
+        if [ "${try}" == "${tries}" ]; then
+            bold=1 error -e "\nMaximum retries has been reached!"
+            info "Verify that your username and password are correct, then try again later."
+            retry=n && echo && pause
+        else
+            prompt retry "Try again?" "y" "Yn" 1
+        fi
+        return
+    fi
+
+    info "Parsing mailboxes..."
+    mailboxes="$(echo "${response}" | grep -o '".*"' | sed 's_"/" "\(.*\)"_\1_')"
+    success "Found $(echo -n "${mailboxes}" | wc -l) mailboxes for ${email_address}"
+}
+
+save_configs() {
+    [ -z "${password}" ] && password="\`lpass show --password \"Email/MuttConf/${account_name}\"\`"
+
+    muttrc=$(
+        export username imap_server password
+        envsubst < templates/muttrc
+    )
+
+    unset password
+    mkdir -p ~/.config/mutt
+    echo "${muttrc}" > ~/.config/mutt/muttrc
+}
+
+list_actions() {
+    local actions=() validopts=() opt
+
+    case "${FUNCNAME[1]}" in
+        main_menu)
+            actions+=("n;Create a new account;success")
+            actions+=("q;Quit;error")
+            ;;
+    esac
+
+    for action in "${actions[@]}"; do
+        IFS=";" read -ra action <<< "${action}"
+        validopts+=("${action[0]}")
+
+        echo -n " [${action[0]}] " >&2
+        bold=1 ${action[2]:-info} "${action[1]}" >&2
+    done
+
+    prompt opt "Enter selection" "${1}" "${1}" 1
+    while [[ ! " ${validopts[*]} " == *" ${opt} "* ]]; do
+        warn -e "\nInvalid option '${opt}'" >&2
+        prompt opt "Enter selection" "${1}" "${1}" 1
+    done
+
+    echo "$opt" && echo >&2
 }
 
 # shellcheck disable=SC2016
@@ -40,7 +230,15 @@ print_logo() {
     success '   | $$\  $ | $$| $$  | $$  | $$ /$$| $$ /$$| $$    $$| $$  | $$| $$  | $$| $$      '
     success '   | $$ \/  | $$|  $$$$$$/  |  $$$$/|  $$$$/|  $$$$$$/|  $$$$$$/| $$  | $$| $$      '
     success '   |__/     |__/ \______/    \___/   \___/   \______/  \______/ |__/  |__/|__/      '
-    bold=0 warn -e "\n                                                             Version ${_VERSION}"
+    bold=0
+
+    warn -en "\n    $(printf "%-55s" "[ ${page} ]")"
+    success -e "     Version ${_VERSION}\n"
+}
+
+quit() {
+    info -e "\nGoodbye!"
+    exit 69
 }
 
 info() {
@@ -57,6 +255,44 @@ error() {
 
 success() {
     colourise 32 "$@"
+}
+
+plain() {
+    colourise 37 "$@"
+}
+
+pause() {
+    read -n1 -srp "Press any key to continue..."
+}
+
+# Prompt the user for input
+# Arguments:
+#   string  var         required    Variable the result should be assigned to
+#   string  prompt      required    Text used for the prompt
+#   string  default     optional    Default value if none is given
+#   string  values      optional    All possible values including default
+#   integer length      optional    Number of characters to accept from input
+prompt() {
+    declare -n var=$1
+    local chars="${5}" default="${3}" question="${2}" values="${4}"
+
+    [ -n "${default}" ] || [ -n "${values}" ] && values=" [${values:-$default}]"
+
+    if [ -n "${chars}" ]; then
+        bold=1 colourise 37 -en "\n${question}${values}: " >&2
+        read -rn"${chars}" var
+    else
+        bold=1 info -e "\n ${question}${values}:" >&2
+        read -rp $' ' var
+    fi
+    var="${var:-$default}"
+}
+
+passprompt() {
+    declare -n var=$1
+
+    bold=1 colourise 37 -e "\n ${2}:"
+    read -rsp $' ' var
 }
 
 colourise() {
