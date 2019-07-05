@@ -134,6 +134,12 @@ find_server_config() {
         gmail.com)
             provider=gmail
             imap_server=imap.gmail.com:993
+            smtp_server=smtp.gmail.com:587
+            ;;
+        icloud.com|me.com)
+            provider=icloud
+            imap_server=imap.mail.me.com:993
+            smtp_server=smtp.mail.me.com:587
             ;;
     esac
 }
@@ -191,9 +197,10 @@ save_configs() {
         "This will be saved to ~/.config/mutt/muttrc should you wish to edit manually."
 
     bold=1 info "Account Details:"
-    info -n " Email Address: "; echo "${email_address}"
-    info -n "   Mail Server: "; echo "${imap_server}"
-    info -n "      Username: "; echo "${username}"
+    info -n "            Username: "; echo "${username}"
+    info -n "       Email Address: "; echo "${email_address}"
+    info -n "Incoming Mail Server: "; echo "${imap_server}"
+    info -n "Outgoing Mail Server: "; echo "${smtp_server}"
     echo
     bold=1 info "Mailboxes:"
     info -n "  Inbox: "; echo "${maildir_inbox}"
@@ -210,7 +217,7 @@ save_configs() {
 
     echo "Customising muttrc template..."
     muttrc=$(
-        export email_address realname username imap_server password \
+        export email_address realname username imap_server smtp_server password \
             maildir_inbox maildir_drafts maildir_sent
         envsubst < templates/muttrc
     )

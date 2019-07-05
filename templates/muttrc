@@ -13,7 +13,7 @@ set imap_keepalive = 300
 set mail_check = 300
 unset imap_passive
 
-set smtp_url = smtp://${username}@${imap_server}
+set smtp_url = smtp://${username}@${smtp_server}
 set ssl_force_tls = yes
 
 set realname = ${realname}
