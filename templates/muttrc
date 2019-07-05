@@ -2,7 +2,9 @@ set folder = imaps://${imap_server}
 set imap_user = ${username}
 set imap_pass = ${password}
 
-set spoolfile = +INBOX
+set spoolfile = +${maildir_inbox}
+set postponed = +${maildir_drafts}
+set record = +${maildir_sent}
 set imap_check_subscribed
 
 set header_cache = ~/.cache/mutt

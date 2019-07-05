@@ -177,6 +177,11 @@ load_mailboxes() {
     info "Parsing mailboxes..."
     mailboxes="$(echo "${response}" | grep -o '".*"' | sed 's_"/" "\(.*\)"_\1_')"
     success "Found $(echo -n "${mailboxes}" | wc -l) mailboxes for ${email_address}"
+
+    info "Matching folders..."
+    maildir_inbox="$(grep -i inbox <<< "${mailboxes}")"
+    maildir_drafts="$(grep -i drafts <<< "${mailboxes}")"
+    maildir_sent="$(grep "Sent Messages" <<< "${mailboxes}" || grep -i sent <<< "${mailboxes}")"
 }
 
 # shellcheck disable=SC2089,2090
@@ -189,6 +194,11 @@ save_configs() {
     info -n " Email Address: "; echo "${email_address}"
     info -n "   Mail Server: "; echo "${imap_server}"
     info -n "      Username: "; echo "${username}"
+    echo
+    bold=1 info "Mailboxes:"
+    info -n "  Inbox: "; echo "${maildir_inbox}"
+    info -n " Outbox: "; echo "${maildir_sent}"
+    info -n " Drafts: "; echo "${maildir_drafts}"
 
     [ -f ~/.config/mutt/muttrc ] && \
         warn "WARNING: An existing muttrc has been detected!" && \
@@ -200,7 +210,8 @@ save_configs() {
 
     echo "Customising muttrc template..."
     muttrc=$(
-        export email_address realname username imap_server password
+        export email_address realname username imap_server password \
+            maildir_inbox maildir_drafts maildir_sent
         envsubst < templates/muttrc
     )
 
