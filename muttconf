@@ -178,6 +178,7 @@ load_mailboxes() {
     success "Found $(echo -n "${mailboxes}" | wc -l) mailboxes for ${email_address}"
 }
 
+# shellcheck disable=SC2089,2090
 save_configs() {
     [ -z "${password}" ] && password="\`lpass show --password \"Email/MuttConf/${account_name}\"\`"
 
