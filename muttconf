@@ -70,6 +70,7 @@ create_account() {
         fi
     done
 
+    page="Saving Configuration"
     save_configs && success -e "\n\nAll done! Press enter to return to main menu"
 
     read -r
@@ -180,14 +181,31 @@ load_mailboxes() {
 
 # shellcheck disable=SC2089,2090
 save_configs() {
+    print_logo
+    info " That's all for now! Below is a summary of your mail configuration." \
+        "This will be saved to ~/.config/mutt/muttrc should you wish to edit manually."
+
+    bold=1 info "Account Details:"
+    info -n " Email Address: "; echo "${email_address}"
+    info -n "   Mail Server: "; echo "${imap_server}"
+    info -n "      Username: "; echo "${username}"
+
+    [ -f ~/.config/mutt/muttrc ] && \
+        warn "WARNING: An existing muttrc has been detected!" && \
+        warn "Saving now will overwrite your current muttrc."
+    pause
+
+    echo " Setting password command..."
     [ -z "${password}" ] && password="\`lpass show --password \"Email/MuttConf/${account_name}\"\`"
 
+    echo "Customising muttrc template..."
     muttrc=$(
         export email_address realname username imap_server password
         envsubst < templates/muttrc
     )
 
     unset password
+    echo "Saving config..."
     mkdir -p ~/.config/mutt
     echo "${muttrc}" > ~/.config/mutt/muttrc
 }
