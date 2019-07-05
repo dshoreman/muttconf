@@ -10,3 +10,10 @@ set message_cachedir = ~/.cache/mutt
 set imap_keepalive = 300
 set mail_check = 300
 unset imap_passive
+
+set smtp_url = smtp://${username}@${imap_server}
+set ssl_force_tls = yes
+
+set realname = ${realname}
+set from = ${email_address}
+set use_from = yes

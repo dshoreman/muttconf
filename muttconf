@@ -183,7 +183,7 @@ save_configs() {
     [ -z "${password}" ] && password="\`lpass show --password \"Email/MuttConf/${account_name}\"\`"
 
     muttrc=$(
-        export username imap_server password
+        export email_address realname username imap_server password
         envsubst < templates/muttrc
     )
 
